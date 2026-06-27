@@ -2,7 +2,7 @@
 
 **Author:** Andy00L
 **Repo:** https://github.com/Andy00L/solana-token-extensions-skill
-**Kit integration PR:** https://github.com/solanabr/solana-ai-kit/pull/28
+**Kit integration PR:** https://github.com/solanabr/solana-ai-kit/pull/28 (answers kit issue #12)
 **Version:** 1.0.0
 **License:** MIT
 
@@ -10,28 +10,18 @@
 
 A progressively loaded Claude Code and Codex skill that makes a coding agent an expert in SPL Token-2022 (Token Extensions): choosing and combining extensions, building mints and transfer hooks, migrating from SPL Token, integrating with wallets, DEXs, and exchanges, and auditing transfer-hook security. It is the deeper, tested companion to the kit's existing `token-2022.md`, and delegates core program work to `solana-dev`.
 
-Two things set it apart:
+What sets it apart is an executable, research-grounded risk engine, shipped as three MCP tools an agent can call directly:
 
-- A read-only **mint inspector** shipped as a CLI and **two MCP tools** an agent can call directly: `inspect_mint` decodes any live mint's extensions and reports wallet, DEX, and CEX integration risk, and `check_extension_compatibility` vets a planned extension set for conflicts and posture before any mint exists.
-- An **executable compatibility matrix**: the written rules are backed by a tested risk engine, corrected against the Token-2022 source.
+- `inspect_mint`: decode any live mint or token account and score it with **conditional severity**. A fund-loss-grade extension is high only while its controlling authority is live, the live-versus-renounced model Jupiter uses to gate transfer-fee tokens from resting orders and Neodyme prescribes for hooks. It emits a 0-to-100 risk score, a concrete fix per finding, and a **renounce-to-remediate path**: the verdict each authority an issuer could renounce would produce (CRITICAL today to MEDIUM once the permanent delegate is renounced), so the score is a path, not just a label.
+- `inspect_many`: triage a whole listing set in one call, with a per-mint verdict and an aggregate roll-up (worst verdict, counts by severity, how many carry a CEX listing blocker). Built for "is my exchange's listing set safe."
+- `check_extension_compatibility`: vet a planned extension set for conflicts and integration posture before any mint exists.
 
-## Structure
+## Mapped to the judging axes
 
-- `skill/SKILL.md` router plus 16 focused docs (compatibility matrix, transfer-hook security audit, confidential-transfer status, a use-case decision tree, per-extension guides, migration, wallet/DEX/CEX integration)
-- 4 specialized agents, 6 workflow commands, 2 rule sets, an installer
-- 3 tested reference builds under `examples/`: a TypeScript multi-extension mint, a native Rust transfer-hook program (`cargo build-sbf`), and the mint inspector
-- 51 offline, deterministic checks via `make verify`
-
-## Problem it solves
-
-Token-2022 is the 2026 standard for serious tokens (stablecoins, real-world assets, regulated tokens), and its extension surface is where builders trip: init ordering, account sizing, incompatible pairs, and transfer-hook security. Integrators and exchanges also need to assess a mint before listing or routing it. This skill consolidates the extension layer and turns due diligence into one command or one MCP call.
-
-## What makes it strong (mapped to the judging axes)
-
-- **Usefulness:** the full extension surface with the gotchas that cause silent failures, a decision tree from requirement to extension set, and two agent-callable MCP tools (inspect a live mint, vet a planned set).
-- **Novelty:** an executable risk engine; a compatibility matrix corrected against the Token-2022 source (the runtime-enforced Scaled UI Amount versus Interest-Bearing exclusion and the required-companion rules); precise confidential-transfer status (disabled on mainnet since June 2025, re-enabled on testnet and devnet only, issue solana-program/token-2022#657); and a decoder that names extension codes the published `@solana/spl-token` enum does not yet map (PayPal USD carries the confidential transfer fee, code 16).
-- **Quality:** 51 deterministic offline checks. Two inaccuracies were caught and corrected by running the inspector against PayPal USD (PYUSD): a confidential-transfer-with-hook pair wrongly flagged as incompatible (PYUSD carries both on mainnet; the hook receives `u64::MAX` on a confidential transfer), and an extension code the inspector now names instead of dropping. Errors as values, no type suppression.
-- **Fit:** mirrors the reference skill shape, integrates as a submodule with one hub routing line, exposes two MCP tools, and delegates core program work to `solana-dev`. Kit integration PR: solanabr/solana-ai-kit#28.
+- **Usefulness:** the full extension surface with the init-order and account-sizing gotchas that cause silent failures, a use-case decision tree from requirement to extension set, and three agent-callable MCP tools (inspect one mint, triage many, vet a planned set). It turns token due diligence into one call.
+- **Novelty:** an executable compatibility matrix corrected against the Token-2022 source (the runtime-enforced Scaled UI Amount versus Interest-Bearing exclusion and the required-companion rules), a conditional-severity risk engine grounded in real integrator behavior, a renounce-to-remediate projection no other entry ships, and a decoder that names every extension code 0 to 28, including those the published `@solana/spl-token` enum does not map (PayPal USD carries the confidential transfer fee, code 16).
+- **Quality:** 84 offline, deterministic checks via `make verify`: a TypeScript multi-extension mint on LiteSVM (7 tests plus a transfer-hook end-to-end scenario), a native Rust transfer hook (`cargo build-sbf` plus 22 unit tests hardened to the security checklist), and the mint inspector (54 tests). Two inaccuracies were caught and corrected by running the inspector against PYUSD: a confidential-transfer-with-hook pair wrongly flagged as incompatible (PYUSD carries both on mainnet; the hook receives `u64::MAX` on a confidential transfer), and an extension code the inspector now names instead of dropping. Errors as values, no type suppression.
+- **Fit:** mirrors the reference skill shape, integrates as a submodule with one hub routing line, exposes three MCP tools, delegates core program work to `solana-dev`, and answers the kit's open request for a full Token Extension skill (issue #12). Kit integration PR: solanabr/solana-ai-kit#28.
 
 ## Install
 
@@ -44,5 +34,5 @@ cd solana-token-extensions-skill
 Verify the reference code offline (no validator, no devnet):
 
 ```bash
-cd examples && make verify   # 51 checks: TypeScript mint, Rust hook, mint inspector
+cd examples && make verify   # 84 checks: TypeScript mint, Rust hook, mint inspector
 ```
